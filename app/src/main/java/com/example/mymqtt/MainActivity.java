@@ -25,7 +25,7 @@ import org.w3c.dom.Text;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    MqttAndroidClient client;
+    MqttAndroidClient client ;
     MqttMessage msg;
 
     TextView connectButton;
@@ -41,6 +41,8 @@ public class MainActivity extends AppCompatActivity {
     String topic;
     String message;
     String clientId;
+
+    Boolean conStatus = false;
 
     private int run = 0;
     @Override
@@ -62,16 +64,52 @@ public class MainActivity extends AppCompatActivity {
         connectButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                brokerIp = brokerIpTextView.toString();
-                port = portTextView.toString();
-                topic = topicTextView.toString();
-                message = messageTextView.toString();
+                brokerIp = brokerIpTextView.getText().toString();
+                port = portTextView.getText().toString();
+                topic = topicTextView.getText().toString();
+                message = messageTextView.getText().toString();
 
                 if(checkTextView()){
-                    connectStatusTextView.setText("Connected");
+
+                    try {
+                        IMqttToken token = client.connect();
+                        token.setActionCallback(new IMqttActionListener() {
+                            @Override
+                            public void onSuccess(IMqttToken asyncActionToken) {
+                                connectStatusTextView.setText("Connected");
+                                conStatus = true;
+                            }
+
+                            @Override
+                            public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
+                                connectStatusTextView.setText("Fail to Connect");
+                                conStatus = false;
+                            }
+                        });
+                    } catch (MqttException e) {
+                        e.printStackTrace();
+                    }
+
                 }
                 else{
                     connectStatusTextView.setText("Not Connected");
+                    conStatus = false;
+                }
+            }
+        });
+
+        sendButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(conStatus){
+                    topic = topicTextView.getText().toString();
+                    message = messageTextView.getText().toString();
+                    msg = new MqttMessage(message.getBytes());
+                    try {
+                        client.publish(topic,msg);
+                    } catch (MqttException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         });
@@ -79,11 +117,12 @@ public class MainActivity extends AppCompatActivity {
         new Handler().post(new Runnable() {
             @Override
             public void run() {
-                if(client.isConnected()){
-                    connectButton.setText("Connected");
-                }
-                else{
-                    connectButton.setText("Not Connected");
+                if(client != null) {
+                    if (client.isConnected()) {
+                        connectButton.setText("Connected");
+                    } else {
+                        connectButton.setText("Not Connected");
+                    }
                 }
             }
         });
@@ -110,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
             if(port.isEmpty()){
                 port = "1883";
             }
-            String address = "tcp//" + brokerIp +":" + port;
+            String address = "tcp://" + brokerIp +":" + port;
             client = new MqttAndroidClient(MainActivity.this,address,clientId);
             return true;
         }
