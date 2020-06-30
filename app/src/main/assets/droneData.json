@@ -1,0 +1,9 @@
+{
+  "id" : "0",
+  "lat" : "1",
+  "long" : "2",
+  "altitude" : "3",
+  "elevationCam" : "4",
+  "heading" : "5",
+  "update" :true
+}
