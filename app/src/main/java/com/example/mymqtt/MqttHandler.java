@@ -12,8 +12,9 @@ import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
-public class MqttItem implements Parcelable {
-    MqttAndroidClient client ;
+public class MqttHandler implements Parcelable {
+    public MqttHandler(){}
+    MqttAndroidClient client;
     MqttMessage msg;
 
     String brokerIp;
@@ -31,7 +32,8 @@ public class MqttItem implements Parcelable {
         this.clientId = MqttClient.generateClientId();
     }
 
-    public void connect(Context context){
+    public boolean connect(String brokerIp, String port, String topic, Context context){
+        set(brokerIp,port,topic);
         if(createClient(context)){
             try {
                 IMqttToken token = client.connect();
@@ -49,7 +51,14 @@ public class MqttItem implements Parcelable {
             } catch (MqttException e) {
                 e.printStackTrace();
             }
+            return true;
         }
+        else
+            return false;
+    }
+
+    public boolean checkCon(){
+        return conStatus;
     }
 
     public void disconnect(){
@@ -80,22 +89,18 @@ public class MqttItem implements Parcelable {
             Toast.makeText(context,"Topic is empty",Toast.LENGTH_LONG).show();
             return false;
         }
-        else if(message.isEmpty()){
-            Toast.makeText(context,"Message is empty",Toast.LENGTH_LONG).show();
-            return false;
-        }
         else{
             if(port.isEmpty()){
-
                 port = "1883";
             }
             String address = "tcp://" + brokerIp +":" + port;
             client = new MqttAndroidClient(context,address,clientId);
+            Toast.makeText(context,"Connected",Toast.LENGTH_LONG).show();
             return true;
         }
     }
 
-    protected MqttItem(Parcel in) {
+    protected MqttHandler(Parcel in) {
         brokerIp = in.readString();
         port = in.readString();
         topic = in.readString();
@@ -103,15 +108,15 @@ public class MqttItem implements Parcelable {
         clientId = in.readString();
     }
 
-    public static final Creator<MqttItem> CREATOR = new Creator<MqttItem>() {
+    public static final Creator<MqttHandler> CREATOR = new Creator<MqttHandler>() {
         @Override
-        public MqttItem createFromParcel(Parcel in) {
-            return new MqttItem(in);
+        public MqttHandler createFromParcel(Parcel in) {
+            return new MqttHandler(in);
         }
 
         @Override
-        public MqttItem[] newArray(int size) {
-            return new MqttItem[size];
+        public MqttHandler[] newArray(int size) {
+            return new MqttHandler[size];
         }
     };
 
