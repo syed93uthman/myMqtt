@@ -3,38 +3,46 @@ package com.example.mymqtt;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
-import android.os.Handler;
-import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
-import org.eclipse.paho.client.mqttv3.IMqttActionListener;
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.IMqttToken;
-import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
-import org.eclipse.paho.client.mqttv3.internal.wire.MqttConnect;
-import org.eclipse.paho.client.mqttv3.internal.wire.MqttWireMessage;
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
-import org.w3c.dom.Text;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    MqttAndroidClient client ;
-    MqttMessage msg;
 
-    TextView connectButton;
-    TextView sendButton;
+    JsonHandler myJson;
+    MqttHandler myMqtt;
+
+    Button connectButton;
+    Button sendButton;
     TextView connectStatusTextView;
     TextView brokerIpTextView;
     TextView portTextView;
     TextView topicTextView;
-    TextView messageTextView;
+
+    TextView idTextView;
+    TextView latTextView;
+    TextView longTextView;
+    TextView altTextView;
+    TextView elevationTextView;
+    TextView headingTextView;
+
+    TextView idJsonTextView;
+    TextView latJsonTextView;
+    TextView longJsonTextView;
+    TextView altJsonTextView;
+    TextView elevationJsonTextView;
+    TextView headingJsonTextView;
+
+    Button messageActivityButton;
 
     String brokerIp;
     String port;
@@ -44,22 +52,41 @@ public class MainActivity extends AppCompatActivity {
 
     Boolean conStatus = false;
 
+    JSONObject droneJson;
+
     private int run = 0;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        connectButton = (TextView) findViewById(R.id.connectButton);
-        sendButton = (TextView) findViewById(R.id.sendButton);
+
+        myJson = new JsonHandler();
+        myMqtt  = new MqttHandler();
+
+        connectButton =  findViewById(R.id.connectButton);
+        sendButton = findViewById(R.id.sendButton);
         connectStatusTextView = (TextView) findViewById(R.id.connectStatusTextView);
         brokerIpTextView = (TextView) findViewById(R.id.brokerIpTextView);
         portTextView = (TextView) findViewById(R.id.portTextView);
         topicTextView = (TextView) findViewById(R.id.topicTextView);
-        messageTextView = (TextView) findViewById(R.id.messageTextView);
+
+        idTextView = findViewById(R.id.idTextView);
+        latTextView = findViewById(R.id.latTextView);
+        longTextView = findViewById(R.id.longTextView);
+        altTextView = findViewById(R.id.altTextView);
+        elevationTextView = findViewById(R.id.elevationTextView);
+        headingTextView = findViewById(R.id.headingTextView);
+
+        idJsonTextView = findViewById(R.id.idJsonTextView);
+        latJsonTextView = findViewById(R.id.latJsonTextView);
+        longJsonTextView = findViewById(R.id.longJsonTextView);
+        altJsonTextView = findViewById(R.id.altJsonTextView);
+        elevationJsonTextView = findViewById(R.id.elevationJsonTextView);
+        headingJsonTextView = findViewById(R.id.headingJsonTextView);
+
+        messageActivityButton = findViewById(R.id.messageActivityButton);
 
         clientId = MqttClient.generateClientId();
-
-
 
         connectButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -67,34 +94,7 @@ public class MainActivity extends AppCompatActivity {
                 brokerIp = brokerIpTextView.getText().toString();
                 port = portTextView.getText().toString();
                 topic = topicTextView.getText().toString();
-                message = messageTextView.getText().toString();
-
-                if(checkTextView()){
-
-                    try {
-                        IMqttToken token = client.connect();
-                        token.setActionCallback(new IMqttActionListener() {
-                            @Override
-                            public void onSuccess(IMqttToken asyncActionToken) {
-                                connectStatusTextView.setText("Connected");
-                                conStatus = true;
-                            }
-
-                            @Override
-                            public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                                connectStatusTextView.setText("Fail to Connect");
-                                conStatus = false;
-                            }
-                        });
-                    } catch (MqttException e) {
-                        e.printStackTrace();
-                    }
-
-                }
-                else{
-                    connectStatusTextView.setText("Not Connected");
-                    conStatus = false;
-                }
+                establish();
             }
         });
 
@@ -103,56 +103,54 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 if(conStatus){
                     topic = topicTextView.getText().toString();
-                    message = messageTextView.getText().toString();
-                    msg = new MqttMessage(message.getBytes());
-                    try {
-                        client.publish(topic,msg);
-                    } catch (MqttException e) {
-                        e.printStackTrace();
-                    }
+                    myMqtt.publishMessage(droneJson.toString());
                 }
             }
         });
 
-        new Handler().post(new Runnable() {
+
+
+        try {
+            droneJson = myJson.createJson(this.getAssets().open("droneData.json"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        messageActivityButton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void run() {
-                if(client != null) {
-                    if (client.isConnected()) {
-                        connectButton.setText("Connected");
-                    } else {
-                        connectButton.setText("Not Connected");
-                    }
+            public void onClick(View view) {
+                try {
+                    droneJson.put("id",idTextView.getText().toString());
+                    droneJson.put("lat",latTextView.getText().toString());
+                    droneJson.put("long",longTextView.getText().toString());
+                    droneJson.put("altitude",altTextView.getText().toString());
+                    droneJson.put("elevationCam",elevationTextView.getText().toString());
+                    droneJson.put("heading",headingTextView.getText().toString());
+
+                    idJsonTextView.setText(droneJson.getString("id"));
+                    latJsonTextView.setText(droneJson.getString("lat"));
+                    longJsonTextView.setText(droneJson.getString("long"));
+                    altJsonTextView.setText(droneJson.getString("altitude"));
+                    elevationJsonTextView.setText(droneJson.getString("elevationCam"));
+                    headingJsonTextView.setText(droneJson.getString("heading"));
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
                 }
             }
         });
-
-
-
-
     }
 
-    public boolean checkTextView(){
-        if(brokerIp.isEmpty()){
-            Toast.makeText(MainActivity.this,"Broker Ip is Empty",Toast.LENGTH_LONG).show();
-            return false;
+    public void establish(){
+        if(myMqtt.connect(brokerIp,port,topic,this)) {
+            connectStatusTextView.setText("Connected");
+            conStatus = true;
         }
-        else if(topic.isEmpty()){
-            Toast.makeText(MainActivity.this,"Topic is Empty",Toast.LENGTH_LONG).show();
-            return false;
-        }
-        else if(message.isEmpty()){
-            Toast.makeText(MainActivity.this,"Message is Empty",Toast.LENGTH_LONG).show();
-            return false;
-        }
-        else{
-            if(port.isEmpty()){
-                port = "1883";
-            }
-            String address = "tcp://" + brokerIp +":" + port;
-            client = new MqttAndroidClient(MainActivity.this,address,clientId);
-            return true;
+        else {
+            connectStatusTextView.setText("Not Connected");
+            conStatus = false;
         }
     }
+
 
 }
